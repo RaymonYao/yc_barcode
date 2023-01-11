@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>条码打印</title>
+    <link rel="stylesheet" href="./css/bootstrap.min.css"/>
+    <style>
+        .bcTarget {
+            display: inline-block;
+        }
+
+        #barcode-content {
+            text-align: center;
+        }
+
+        .print-action {
+            position: fixed;
+            bottom: 10px;
+            display: flex;
+            width: 100%;
+            align-items: center;
+        }
+
+        .print-input {
+            width: 90%;
+            margin: 0;
+            display: inline-block;
+            border-right: 0;
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+            height: 100px !important;
+        }
+
+        .print-btn {
+            margin: 0;
+            width: 10%;
+            display: inline-block;
+            font-size: 30px;
+            border-left: 0;
+            align-items: center;
+            border-top-left-radius: 0;
+            height: 100px;
+            border-bottom-left-radius: 0;
+            padding: 20px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+<div>
+    <form class="form-horizontal">
+        <div class="form-group" id="barcode-content">
+            <div id="bcTarget-end" style="display: none"></div>
+        </div>
+    </form>
+</div>
+<select id="code_type" class="form-select form-select-lg mb-3" aria-label=".form-select-lg example"
+        style="margin-left: 10px;background-color: #14A2B8;color: #fff;width: 80px;height: 35px;padding-left: 5px;">
+    <option selected>条形码</option>
+    <option value="1">二维码</option>
+</select>
+<div class="print-action">
+    <textarea placeholder="请输入条码,每条以回车结尾" class="form-control print-input" id="input-barcode"></textarea>
+    <span class="btn btn-info print-btn">打印</span>
+</div>
+</body>
+<script src="./js/jquery.js"></script>
+<script src="./js/popper.min.js "></script>
+<script src="./js/bootstrap.js"></script>
+<script src="./js/jquery.barcode.js"></script>
+<script src="./js/jquery.qrcode.min.js"></script>
+<script>
+    $(function () {
+        $('#code_type').change(function () {
+            showCodes();
+        })
+        $('#input-barcode').bind('input propertychange', function () {
+            showCodes();
+        });
+        $('.print-btn').click(function () {
+            $('.print-action').hide();
+            window.print();
+        });
+    });
+
+    function showCodes() {
+        var val = $('#input-barcode').val();
+        if (val.length) {
+            var arr = val.split('\n');
+            $('#barcode-content .bcTarget').remove();
+            for (var i in arr) {
+                if ((arr[i]).trim() == '') {
+                    continue;
+                }
+                var html = ' <div class="bcTarget"><div id="bcTarget' + i + '"></div></div>';
+                $('#bcTarget-end').before(html);
+                if ($('#code_type').val() == '条形码') {
+                    $('#bcTarget' + i).barcode(arr[i], 'code128', {
+                        'barWidth': '2'
+                    });
+                } else {
+                    createQrcode(i, arr[i]);
+                    $('#bcTarget' + i).css('margin-right', '60px');
+                    $('#bcTarget' + i).css('margin-bottom', '60px');
+                }
+            }
+        }
+    }
+
+    function createQrcode(i, title) {
+        //二维码宽高
+        var qrcodewidth = 200;
+        var qrcodeheight = 200;
+        //canvas宽高
+        var canvaswidth = qrcodewidth;
+        var canvasheight = qrcodeheight + 100;
+        //logo宽高
+        var logowidth = 40;
+        var logoheight = 40;
+        //文字描述位置
+        var textleft = qrcodewidth / 2;
+        var texttop = qrcodeheight + 30;
+        //logo位置
+        var logoleft = (qrcodewidth - logowidth) / 2;
+        var logotop = (qrcodeheight - logoheight) / 2;
+
+        var qrcode = $('#bcTarget' + i).qrcode({
+            render: 'canvas',
+            text: utf16to8(title),
+            width: qrcodewidth,
+            height: qrcodeheight,
+            background: '#ffffff',
+            foreground: '#000000',
+        });
+        var canvas = qrcode.find('canvas').get(0);
+        var img = new Image();
+        img.src = canvas.toDataURL('image/png');
+        img.onload = function () {
+            canvas.width = canvaswidth;
+            canvas.height = canvasheight;
+            var ctx = canvas.getContext('2d');
+            //设置画布背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            //设置文字样式
+            ctx.fillStyle = '#000000';
+            // ctx.font = 'bold ' + 10 + 'px Arial';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            //文字描述
+            // ctx.fillText(title, textleft, texttop);
+            ctx.wrapText(title, textleft, texttop);
+            //绘制二维码
+            ctx.drawImage(img, 0, 0);
+            //设置logo
+            var logo = new Image(logowidth, logoheight);
+            logo.src = './img/yao.jpeg';
+            logo.onload = function () {
+                ctx.drawImage(logo, logoleft, logotop, logowidth, logoheight);
+            }
+        }
+    }
+
+    //jquery-qrcode不支持中文,改变一下编码就支持了！
+    function utf16to8(str) {
+        var out, i, len, c;
+        out = "";
+        len = str.length;
+        for (i = 0; i < len; i++) {
+            c = str.charCodeAt(i);
+            if ((c >= 0x0001) && (c <= 0x007F)) {
+                out += str.charAt(i);
+            } else if (c > 0x07FF) {
+                out += String.fromCharCode(0xE0 | ((c >> 12) & 0x0F));
+                out += String.fromCharCode(0x80 | ((c >> 6) & 0x3F));
+                out += String.fromCharCode(0x80 | ((c >> 0) & 0x3F));
+            } else {
+                out += String.fromCharCode(0xC0 | ((c >> 6) & 0x1F));
+                out += String.fromCharCode(0x80 | ((c >> 0) & 0x3F));
+            }
+        }
+        return out;
+    }
+
+    //扩展的文本自动换行方法
+    CanvasRenderingContext2D.prototype.wrapText = function (text, x, y, maxWidth, lineHeight) {
+        if (typeof text != 'string' || typeof x != 'number' || typeof y != 'number') {
+            return;
+        }
+
+        var context = this;
+        var canvas = context.canvas;
+
+        if (typeof maxWidth == 'undefined') {
+            maxWidth = (canvas && canvas.width) || 300;
+        }
+        if (typeof lineHeight == 'undefined') {
+            lineHeight = (canvas && parseInt(window.getComputedStyle(canvas).lineHeight)) || parseInt(window.getComputedStyle(document.body).lineHeight);
+        }
+
+        // 字符分隔为数组
+        var arrText = text.split('');
+        var line = '';
+
+        for (var n = 0; n < arrText.length; n++) {
+            var testLine = line + arrText[n];
+            var metrics = context.measureText(testLine);
+            var testWidth = metrics.width;
+            if (testWidth > maxWidth && n > 0) {
+                context.fillText(line, x, y);
+                line = arrText[n];
+                y += lineHeight;
+            } else {
+                line = testLine;
+            }
+        }
+        context.fillText(line, x, y);
+    };
+
+    var afterPrint = function (e) {
+        $('.print-action').show();
+    };
+    window.onafterprint = afterPrint;
+</script>
+</html>
